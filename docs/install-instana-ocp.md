@@ -84,7 +84,7 @@ Create `instana` application, input parameters as follows In ArgoCD UI:
   - Project: default
   - SYNC POLICY: Automatic
 - SOURCE
-  - REPO URL : https://github.com/lihongbj/instana-gitops
+  - REPO URL : https://github.com/IBM/instana-gitops
   - Target version: HEAD
   - path: config/instana-operator
 - DESTINATION
