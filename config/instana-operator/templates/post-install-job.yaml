@@ -28,6 +28,13 @@ spec:
               set -x
               result=0
               
+              # --- is ocp?  ---
+              isocp=false
+              version=`oc version |grep Server |awk '{print $3}' |tr -d ' '`
+              if [ ${#version} -gt 1 ] ; then
+                isocp=true
+              fi
+
               echo "============ in post-install =========="
               echo "wait until instana-operator pod running"
               while true; do
@@ -41,7 +48,11 @@ spec:
               done
 
               # base ingress , 
-              base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
+              if [ "$isocp" = "true" ]; then
+                base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
+              else
+                base=`hostname`
+              fi
               echo ${base}
 
               # ------------ cr core , unit ------------
@@ -63,23 +74,24 @@ spec:
               EOF
               
               # ocp scc
-              oc adm policy add-scc-to-user anyuid -z instana-core -n instana-core
-              oc adm policy add-scc-to-user anyuid -z default -n instana-core
-              
-              oc adm policy add-scc-to-user privileged -z default      -n instana-core
-              oc adm policy add-scc-to-user privileged -z instana-core -n instana-core
-              oc adm policy add-scc-to-group anyuid     system:serviceaccounts:instana-core
-              oc adm policy add-scc-to-group privileged system:serviceaccounts:instana-core
-              
-              
-              oc adm policy add-scc-to-user anyuid -z instana-prod -n instana-units
-              oc adm policy add-scc-to-user anyuid -z default -n instana-units
-              
-              oc adm policy add-scc-to-group anyuid     system:serviceaccounts:instana-units
-              oc adm policy add-scc-to-group privileged system:serviceaccounts:instana-units
-              oc adm policy add-scc-to-user privileged -z default      -n instana-units
-              oc adm policy add-scc-to-user privileged -z instana-prod -n instana-units
-              
+              if [ "$isocp" = "true" ]; then
+                oc adm policy add-scc-to-user anyuid -z instana-core -n instana-core
+                oc adm policy add-scc-to-user anyuid -z default -n instana-core
+                
+                oc adm policy add-scc-to-user privileged -z default      -n instana-core
+                oc adm policy add-scc-to-user privileged -z instana-core -n instana-core
+                oc adm policy add-scc-to-group anyuid     system:serviceaccounts:instana-core
+                oc adm policy add-scc-to-group privileged system:serviceaccounts:instana-core
+                
+                
+                oc adm policy add-scc-to-user anyuid -z instana-prod -n instana-units
+                oc adm policy add-scc-to-user anyuid -z default -n instana-units
+                
+                oc adm policy add-scc-to-group anyuid     system:serviceaccounts:instana-units
+                oc adm policy add-scc-to-group privileged system:serviceaccounts:instana-units
+                oc adm policy add-scc-to-user privileged -z default      -n instana-units
+                oc adm policy add-scc-to-user privileged -z instana-prod -n instana-units
+              fi 
               
               # license 
               license=$(echo {{ .Values.INSTANA_LICENSE }} | tr -d '[]"')
@@ -130,6 +142,7 @@ spec:
               
               # cr
               echo "creating core ..." 
+              if [ "$isocp" = "true" ]; then
               cat << EOF | oc apply -f -
               apiVersion: instana.io/v1beta1
               kind: Core
@@ -170,7 +183,50 @@ spec:
                         storage: {{ .Values.storageSizeInGB }}Gi
                     storageClassName: {{ .Values.storageClassName }}
               EOF
-              
+              else  # k8s
+              cat << EOF | oc apply -f -
+              apiVersion: instana.io/v1beta1
+              kind: Core
+              metadata:
+                namespace: instana-core
+                name: instana-core
+              spec:
+                baseDomain: ${base}
+                agentAcceptorConfig:
+                  host: ${base}
+                  port: 8600
+                resourceProfile: small
+                imagePullSecrets:
+                - name: instana-registry
+                # Datastore configs with default ports for each db
+                datastoreConfigs:
+                  - type: cassandra
+                    addresses:
+                      - {{ .Values.dbhost }}
+                  - type: cockroachdb
+                    addresses:
+                      - {{ .Values.dbhost }}
+                  - type: clickhouse
+                    addresses:
+                      - {{ .Values.dbhost }}
+                  - type: elasticsearch
+                    addresses:
+                      - {{ .Values.dbhost }}
+                  - type: kafka
+                    addresses:
+                      - {{ .Values.dbhost }}
+                rawSpansStorageConfig:
+                  pvcConfig:
+                    accessModes:
+                      - ReadWriteMany
+                    resources:
+                      requests:
+                        storage: {{ .Values.storageSizeInGB }}Gi
+                    storageClassName: {{ .Values.storageClassName }}
+              EOF
+              fi
+
+
               echo "creating unit ..." 
               cat << EOF | oc apply -f -
               apiVersion: instana.io/v1beta1
@@ -189,6 +245,7 @@ spec:
                
               
               # routes 
+              if [ "$isocp" = "true" ]; then
               cat << EOF | oc apply -f -
               apiVersion: route.openshift.io/v1
               kind: Route
@@ -242,6 +299,67 @@ spec:
                   kind: Service
                   name: gateway
               EOF
+              else # k8s nodeport
+
+              cat << EOF | oc apply -f -
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: acceptor-svc
+                namespace: instana-core
+              spec:
+                ports:
+                  - name: http-service
+                    port: 8600
+                    nodePort: 30950
+                    protocol: TCP
+                selector:
+                  app.kubernetes.io/name: instana
+                  app.kubernetes.io/component: acceptor
+                  instana.io/group: service
+                type: NodePort
+              EOF
+
+              cat << EOF | oc apply -f -
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: gateway-core-svc
+                namespace: instana-core
+              spec:
+                ports:
+                  - name: https
+                    port: 8443
+                    nodePort: 30953
+                    protocol: TCP
+                selector:
+                  app.kubernetes.io/name: instana
+                  app.kubernetes.io/component: gateway
+                  instana.io/group: service
+                type: NodePort
+              EOF
+
+              cat << EOF | oc apply -f -
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: gateway-unit-svc
+                namespace: instana-core
+              spec:
+                ports:
+                  - name: https
+                    port: 8443
+                    nodePort: 30955
+                    protocol: TCP
+                selector:
+                  app.kubernetes.io/name: instana
+                  app.kubernetes.io/component: gateway
+                  instana.io/group: service
+                type: NodePort
+              EOF
+
+
+              fi
              
 
               exit 0

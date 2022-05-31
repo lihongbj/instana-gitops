@@ -78,7 +78,19 @@ else
 	echo "mycertpem.sh exists." 
 fi
 
-base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
+isocp=false
+# how to judge if ocp or k8s without oc ??
+version=`oc version |grep Server |awk '{print $3}' |tr -d ' '`
+if [ ${#version} -gt 1 ] ; then
+  isocp=true
+fi
+
+if [ "$isocp" = "true" ]; then
+  base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
+else
+  base=`hostname`
+fi
+
 if [ "$portalPassword" = "" ] ; then
 	portalPassword="passw0rd"
 fi
