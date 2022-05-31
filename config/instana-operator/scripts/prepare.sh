@@ -1,5 +1,25 @@
 #/bin/bash
 
+isocp=false
+if kubectl api-resources | grep projectrequests > /dev/null ; then
+  isocp=true
+fi
+
+base=$baseDomain
+if [ "$baseDomain" = "" ] ; then
+  if [ "$isocp" = "true" ]; then
+    base=`kubectl get ingresses.config/cluster -o jsonpath={.spec.domain}`
+  else
+   echo "env variable 'baseDomain' is not set yet, exit. " 
+   exit 1
+  fi
+fi
+echo $base
+
+if [ "$portalPassword" = "" ] ; then
+    portalPassword="passw0rd"
+fi
+
 # create ns instana-operator to create other stuff: secret/kubeconfig
 kubectl create ns instana-operator
 
@@ -78,21 +98,6 @@ else
     echo "mycertpem.sh exists." 
 fi
 
-isocp=false
-if kubectl api-resources | grep projectrequests > /dev/null ; then
-  isocp=true
-fi
-
-if [ "$portalPassword" = "" ] ; then
-    portalPassword="passw0rd"
-fi
-
-if [ "$isocp" = "true" ]; then
-  base=`kubectl get ingresses.config/cluster -o jsonpath={.spec.domain}`
-else
-  base=`hostname`
-fi
-echo $base
 
 if [ "$isocp" = "true" ]; then
   /usr/local/bin/mycertpem.sh $portalPassword  instana.$base
@@ -102,5 +107,6 @@ fi
 
 cat key.pem cert.pem > sp.pem
 kubectl create configmap instana-sppem -n default --from-file=sppem=sp.pem
+unalias rm
 rm key.pem cert.pem  sp.pem
 
