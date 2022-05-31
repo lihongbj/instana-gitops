@@ -62,6 +62,7 @@ helm install instana-operator --namespace=instana-operator --timeout 600 --wait 
     --set INSTANA_LICENSE=$INSTANA_LICENSE \
     --set storageClassName=$storageClassName \
     --set dbhost=$dbhost \
+    --set baseDomain=$baseDomain \
     --set portalPassword=$portalPassword ../ 
 
 

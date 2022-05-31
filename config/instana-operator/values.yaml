@@ -17,8 +17,8 @@ portalPassword: "passw0rd"
 #  - name: instana-registry
 
 
-# eg. for ocp: oc get ingresses.config/cluster -o jsonpath={.spec.domain}    
-#Ingress_Domain:  "myIngress_Domain"
+# baseDomain, for ocp: oc get ingresses.config/cluster -o jsonpath={.spec.domain}    
+baseDomain:  "REPLACE_ME"
 
 
       
