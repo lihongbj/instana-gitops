@@ -1,13 +1,13 @@
 #/bin/bash
 
 # create ns instana-operator to create other stuff: secret/kubeconfig
-oc create ns instana-operator
+kubectl create ns instana-operator
 
 # kubeconfig
-oc create secret generic kubeconfig --from-file=credentials=$HOME/.kube/config -n instana-operator
+kubectl create secret generic kubeconfig --from-file=credentials=$HOME/.kube/config -n instana-operator
 
 # cert-manager
-oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.6.0/cert-manager.yaml
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.6.0/cert-manager.yaml
 
 # --
 export dist=$(cat /etc/os-release  | grep "^ID=" | cut -f2 -d= | tr -d '"')
@@ -79,9 +79,7 @@ else
 fi
 
 isocp=false
-# how to judge if ocp or k8s without oc ??
-version=`oc version |grep Server |awk '{print $3}' |tr -d ' '`
-if [ ${#version} -gt 1 ] ; then
+if kubectl api-resources | grep projectrequests > /dev/null ; then
   isocp=true
 fi
 
@@ -90,7 +88,7 @@ if [ "$portalPassword" = "" ] ; then
 fi
 
 if [ "$isocp" = "true" ]; then
-  base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
+  base=`kubectl get ingresses.config/cluster -o jsonpath={.spec.domain}`
 else
   base=`hostname`
 fi
@@ -103,6 +101,6 @@ else
 fi
 
 cat key.pem cert.pem > sp.pem
-oc create configmap instana-sppem -n default --from-file=sppem=sp.pem
+kubectl create configmap instana-sppem -n default --from-file=sppem=sp.pem
 rm key.pem cert.pem  sp.pem
 
