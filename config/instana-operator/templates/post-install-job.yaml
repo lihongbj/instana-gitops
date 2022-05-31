@@ -105,7 +105,11 @@ spec:
               fi
               
               openssl dhparam -out dhparams.pem 2048
+              if [ "$isocp" = "true" ]; then
               openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 365 -nodes -subj "/CN=instana.$base"
+              else
+              openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 365 -nodes -subj "/CN=$base"
+              fi
               
               
               # secrets from stuff

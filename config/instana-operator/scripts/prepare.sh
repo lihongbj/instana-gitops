@@ -65,7 +65,7 @@ expect "Organizational Unit Name (eg, section)"
 send -- "CDL\r"
 
 expect "Common Name "
-send -- "instana.$base\r"
+send -- "$base\r"
 
 expect "Email Address"
 send -- "\r"
@@ -85,16 +85,23 @@ if [ ${#version} -gt 1 ] ; then
   isocp=true
 fi
 
+if [ "$portalPassword" = "" ] ; then
+    portalPassword="passw0rd"
+fi
+
 if [ "$isocp" = "true" ]; then
   base=`oc get ingresses.config/cluster -o jsonpath={.spec.domain}`
 else
   base=`hostname`
 fi
+echo $base
 
-if [ "$portalPassword" = "" ] ; then
-    portalPassword="passw0rd"
+if [ "$isocp" = "true" ]; then
+  /usr/local/bin/mycertpem.sh $portalPassword  instana.$base
+else
+  /usr/local/bin/mycertpem.sh $portalPassword  $base
 fi
-/usr/local/bin/mycertpem.sh $portalPassword  $base
+
 cat key.pem cert.pem > sp.pem
 oc create configmap instana-sppem -n default --from-file=sppem=sp.pem
 rm key.pem cert.pem  sp.pem
