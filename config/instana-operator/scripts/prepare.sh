@@ -13,16 +13,16 @@ oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.6.0/ce
 export dist=$(cat /etc/os-release  | grep "^ID=" | cut -f2 -d= | tr -d '"')
 which expect > /dev/null 2>&1
 if [ $? -ne 0 ] ; then
-	if [ "$dist" = "rhel" ] ; then
-		yum install -y expect  > /dev/null 2>&1
+    if [ "$dist" = "rhel" ] ; then
+        yum install -y expect  > /dev/null 2>&1
     else
-		if [ "$dist" = "ubuntu" ] ; then
-			apt install -y expect  > /dev/null 2>&1
-		else
-			echo "no expected linux, exit"
-			exit 1
-	    fi
-	fi
+        if [ "$dist" = "ubuntu" ] ; then
+            apt install -y expect  > /dev/null 2>&1
+        else
+            echo "no expected linux, exit"
+            exit 1
+        fi
+    fi
 fi
 
 if [ ! -x /usr/local/bin/mycertpem.sh ] ; then
@@ -75,7 +75,7 @@ expect eof
 
 chmod +x /usr/local/bin/mycertpem.sh
 else
-	echo "mycertpem.sh exists." 
+    echo "mycertpem.sh exists." 
 fi
 
 isocp=false
@@ -92,7 +92,7 @@ else
 fi
 
 if [ "$portalPassword" = "" ] ; then
-	portalPassword="passw0rd"
+    portalPassword="passw0rd"
 fi
 /usr/local/bin/mycertpem.sh $portalPassword  $base
 cat key.pem cert.pem > sp.pem
