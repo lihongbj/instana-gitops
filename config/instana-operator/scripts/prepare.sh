@@ -4,6 +4,7 @@ isocp=false
 if kubectl api-resources | grep projectrequests > /dev/null ; then
   isocp=true
 fi
+echo "isocp: $isocp"
 
 base=$baseDomain
 if [ "$baseDomain" = "" ] ; then
@@ -14,11 +15,12 @@ if [ "$baseDomain" = "" ] ; then
    exit 1
   fi
 fi
-echo $base
+echo "baseDomain: $base"
 
 if [ "$portalPassword" = "" ] ; then
     portalPassword="passw0rd"
 fi
+echo "portalPassword: $portalPassword"
 
 # create ns instana-operator to create other stuff: secret/kubeconfig
 kubectl create ns instana-operator
@@ -107,6 +109,8 @@ fi
 
 cat key.pem cert.pem > sp.pem
 kubectl create configmap instana-sppem -n default --from-file=sppem=sp.pem
-unalias rm
+if alias | grep "rm='rm -i'" > /dev/null ; then
+  unalias rm
+fi
 rm key.pem cert.pem  sp.pem
 
