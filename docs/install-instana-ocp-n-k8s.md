@@ -90,7 +90,8 @@ Create `instana` application, input parameters as follows In ArgoCD UI:
 - DESTINATION
   - Cluster URL: https://kubernetes.default.svc
   - Namespace: instana-operator
-- HELM:  fill below and   `REPLACE_ME` parameters
+- HELM:  fill below `REPLACE_ME` parameters
+  - baseDomain
   - dbhost
   - storageClassName
   - INSTANA_DOWNLOAD_KEY
