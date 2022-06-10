@@ -145,32 +145,32 @@ systemctl start haproxy
 
 ## 5. Install Instana Plugin. There is [IBM documentation](https://www.ibm.com/docs/en/obi/current?topic=kubernetes-instana-kubectl-plug-in) on that.   
    **Option A**: I have already copied the installation file **kubectl-instana-linux_amd64-release-223-0.tar.gz** to Basion Node
-      ```
-      mkdir kubectl-instana; cd kubectl-instana
-      tar -xvf /tmp/kubectl-instana-linux_amd64-release-223-0.tar.gz 
-      export PATH=$PATH:/root/kubectl-instana
-      kubectl instana --version
-      ```
+```
+mkdir kubectl-instana; cd kubectl-instana
+tar -xvf /tmp/kubectl-instana-linux_amd64-release-223-0.tar.gz 
+export PATH=$PATH:/root/kubectl-instana
+kubectl instana --version
+```
    **Option B**:  
-      ```
-      cat > /etc/yum.repos.d/Instana-Product.repo << EOF
-      [instana-product]
-      name=Instana-Product
-      baseurl=https://self-hosted.instana.io/rpm/release/product/rpm/generic/x86_64/Packages
-      enabled=1
-      gpgcheck=1
-      repo_gpgcheck=1
-      gpgkey=https://self-hosted.instana.io/signing_key.gpg
-      priority=5
-      sslverify=1
-      #proxy=http://x.x.x.x:8080
-      #proxy_username=
-      #proxy_password=
-      EOF
+```
+cat > /etc/yum.repos.d/Instana-Product.repo << EOF
+[instana-product]
+name=Instana-Product
+baseurl=https://self-hosted.instana.io/rpm/release/product/rpm/generic/x86_64/Packages
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://self-hosted.instana.io/signing_key.gpg
+priority=5
+sslverify=1
+#proxy=http://x.x.x.x:8080
+#proxy_username=
+#proxy_password=
+EOF
 
-      yum makecache -y --timer
-      yum install -y instana-kubectl
-      ```
+yum makecache -y --timer
+yum install -y instana-kubectl
+```
 ## 6. Setup Instana datastores  
    Install instana datastores using **3-rd party vender operators**  
    
