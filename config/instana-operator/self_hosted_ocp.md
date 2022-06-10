@@ -187,7 +187,7 @@ cd onprem-distkit
 
 ```  
 ### 6.1  [Create Zookeeper datastore using Zookeeper Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/tree/main/onprem-distkit/zookeeper/operator)
-```sh
+```console
 # Zookeeper Operator installation
 helm repo add pravega https://charts.pravega.io
 helm repo update
@@ -218,7 +218,7 @@ statefulset.apps/instana   3/3     3h22m
 ```
     
 ###   6.2  [Create Kafka datastore using Strimzi Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/kafka/operator/README.md)  
-```sh
+```console
 # Strimzi Operator installation
 helm repo add strimzi https://strimzi.io/charts/
 helm repo update
@@ -239,7 +239,7 @@ instana-kafka-2                             1/1     Running   0          46m
 ```
       
 ### 6.3  [Create Elasticsearch datastore using Elasticsearch (ECK) Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/elasticsearch/operator/README.md)  
- ```sh
+ ```console
 # Elasticsearch (ECK) Operator installation
 helm repo add elastic https://helm.elastic.co
 helm repo update
@@ -266,7 +266,7 @@ statefulset.apps/instana-es-default   3/3     2m42s
  ```
       
 ### 6.4  [Create CockroachDB datastore using CockroachDB Kubernetes Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cockroachdb/operator/README.md)  
-```sh
+```console
 # CockroachDB Kubernetes Operator installation
 kubectl apply -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/crds.yaml
 curl https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/operator.yaml | sed 's|cockroach-operator-system|instana-cockroachdb|g' | kubectl apply -f -
@@ -282,7 +282,7 @@ cockroachdb-2                         1/1     Running   0          46s
 ```
       
 ### 6.5  [Create Cassandra datastore using Cass Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cassandra/operator/README.md)  
-```sh
+```console
 # Cass Operator installation
 helm repo add k8ssandra https://helm.k8ssandra.io/stable
 helm repo update
@@ -301,7 +301,7 @@ instana-cassandra-default-sts-0   2/2     Running   0          5m10s
 ```
       
 ### 6.6  [Create Clickhouse datastore using ClickHouse Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/clickhouse/operator/README.md)  
-```sh
+```console
 # Clickhouse Operator installation
 curl -s https://raw.githubusercontent.com/Altinity/clickhouse-operator/master/deploy/operator-web-installer/clickhouse-operator-install.sh | OPERATOR_NAMESPACE=instana-clickhouse bash
 # Ensemble deployment
