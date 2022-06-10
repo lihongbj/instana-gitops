@@ -1,16 +1,65 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Self Hosted Instana backend on OpenShift](#self-hosted-instana-backend-on-openshift)
+  - [1. Get a cluster from TechZon using the following link. I used 4 nodes (8 CPU, 32 GB) , 250 GB storage, and OpenShift version 4.8](#1-get-a-cluster-from-techzon-using-the-following-link-i-used-4-nodes-8-cpu-32-gb--250-gb-storage-and-openshift-version-48)
+  - [2. Connect to your Bastion node:](#2-connect-to-your-bastion-node)
+  - [3. Start by setting up OCS storage. I did it based on the tutorial available on GitHub page. Below you can find requied steps:](#3-start-by-setting-up-ocs-storage-i-did-it-based-on-the-tutorial-available-on-github-page-below-you-can-find-requied-steps)
+  - [4. Change the port 9000 used by haproxy to e.g. 9111 as otherwise you will have conflict with **ClickHouse** database.](#4-change-the-port-9000-used-by-haproxy-to-eg-9111-as-otherwise-you-will-have-conflict-with-clickhouse-database)
+  - [5. Install Instana Plugin. There is IBM documentation on that.](#5-install-instana-plugin-there-is-ibm-documentation-on-that)
+  - [6. Setup Instana datastores](#6-setup-instana-datastores)
+    - [6.0 Parparation](#60-parparation)
+    - [6.1  Create Zookeeper datastore using Zookeeper Operaror](#61--create-zookeeper-datastore-using-zookeeper-operaror)
+    - [6.2  Create Kafka datastore using Strimzi Operaror](#62--create-kafka-datastore-using-strimzi-operaror)
+    - [6.3  Create Elasticsearch datastore using Elasticsearch (ECK) Operator](#63--create-elasticsearch-datastore-using-elasticsearch-eck-operator)
+    - [6.4  Create CockroachDB datastore using CockroachDB Kubernetes Operator](#64--create-cockroachdb-datastore-using-cockroachdb-kubernetes-operator)
+    - [6.5  Create Cassandra datastore using Cass Operaror](#65--create-cassandra-datastore-using-cass-operaror)
+    - [6.6  Create Clickhouse datastore using ClickHouse Operator](#66--create-clickhouse-datastore-using-clickhouse-operator)
+  - [7. Install Cert Manager](#7-install-cert-manager)
+  - [8. Create namespace for Instana Operator and required secret. Please make sure to put your valid **DOWNLOAD_KEY**](#8-create-namespace-for-instana-operator-and-required-secret-please-make-sure-to-put-your-valid-download_key)
+  - [9. Add required permissions for service account:](#9-add-required-permissions-for-service-account)
+  - [10. Create a file called *values.yaml* in /tmp. This will tell Instana operator which secret to use to pull containers:](#10-create-a-file-called-valuesyaml-in-tmp-this-will-tell-instana-operator-which-secret-to-use-to-pull-containers)
+  - [11. Install Instana Operator:](#11-install-instana-operator)
+  - [12.  Check if it is running `kubectl get pods -n instana-operator`. You should see one pod running:](#12--check-if-it-is-running-kubectl-get-pods--n-instana-operator-you-should-see-one-pod-running)
+  - [13. Create directories to hold yaml files of Instana Core:](#13-create-directories-to-hold-yaml-files-of-instana-core)
+  - [14. Create two namespaces : *instana-core* , *instana-units*](#14-create-two-namespaces--instana-core--instana-units)
+  - [15. Download Instana license. Please make sure to provide valid **SALES_KEY**](#15-download-instana-license-please-make-sure-to-provide-valid-sales_key)
+  - [16. Create Diffie-Hellman parameters for **instana-base**  secret](#16-create-diffie-hellman-parameters-for-instana-base--secret)
+  - [17. Create **instana-registry** secret in **instana-core** and **instana-units** namespaces. Of coure provide valid **DOWNLOAD_KEY**](#17-create-instana-registry-secret-in-instana-core-and-instana-units-namespaces-of-coure-provide-valid-download_key)
+  - [18. Create combined key/cert file. Provide *passw0rd* as pass phrase :](#18-create-combined-keycert-file-provide-passw0rd-as-pass-phrase-)
+  - [19. Create **Core** Secret.](#19-create-core-secret)
+  - [20. Create **instana-tls** secret. Provide baseDomain as CN](#20-create-instana-tls-secret-provide-basedomain-as-cn)
+  - [21. Create **Unit Secret**.](#21-create-unit-secret)
+  - [22. Add required permissions for service accounts. Without those the pods will not start.](#22-add-required-permissions-for-service-accounts-without-those-the-pods-will-not-start)
+  - [23. Create **spans-volume-claim** and **appdata-writer** persistent volume claims](#23-create-spans-volume-claim-and-appdata-writer-persistent-volume-claims)
+  - [24. In */root/instana-template* there should be core.yaml file which needs to be updated as below for your environment.](#24-in-rootinstana-template-there-should-be-coreyaml-file-which-needs-to-be-updated-as-below-for-your-environment)
+  - [25. Once the file is ready, please apply it `kubectl apply -f core.yaml`. You can check what is happening by looking at the events. Initially I found there information on permission issue causing pods' startup issues.](#25-once-the-file-is-ready-please-apply-it-kubectl-apply--f-coreyaml-you-can-check-what-is-happening-by-looking-at-the-events-initially-i-found-there-information-on-permission-issue-causing-pods-startup-issues)
+  - [26. If you don't see any errors you should eventually see pods running when you type: `kubectl get pods -n instana-core`](#26-if-you-dont-see-any-errors-you-should-eventually-see-pods-running-when-you-type-kubectl-get-pods--n-instana-core)
+  - [27. Populate the **unit.yaml** file as below.](#27-populate-the-unityaml-file-as-below)
+  - [28. When done, apply your settings: `kubectl apply -f unit.yaml`](#28-when-done-apply-your-settings-kubectl-apply--f-unityaml)
+  - [29. Progress can be monitored with `kubectl get events -n instana-units`](#29-progress-can-be-monitored-with-kubectl-get-events--n-instana-units)
+  - [30. Once process completes, you should get pods running `kubectl get pods -n instana-units`. Example output:](#30-once-process-completes-you-should-get-pods-running-kubectl-get-pods--n-instana-units-example-output)
+  - [31. Create a route for accessing the UI.](#31-create-a-route-for-accessing-the-ui)
+  - [32. Create a route for agent acceptor](#32-create-a-route-for-agent-acceptor)
+  - [33. Now you should be able to connect to your Instana by putting https://<your_hostname> in the browser](#33-now-you-should-be-able-to-connect-to-your-instana-by-putting-httpsyour_hostname-in-the-browser)
+  - [34. If something is missing or not right in this tuotorial, please let me know.](#34-if-something-is-missing-or-not-right-in-this-tuotorial-please-let-me-know)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # Self Hosted Instana backend on OpenShift 
 
 Even Instana on OpenShift is not officially supported, it can be installed on Fyre OCP+ clusters available in TechZone.  I will list the steps
 required to install Instana backend. Those are based on [IBM Documentation](https://www.ibm.com/docs/en/obi/current?topic=kubernetes-installing-operator-based-instana-setup)  describing setup of Instana on Kubernetes
 
 
-1. Get a cluster from TechZon using the [following link](https://techzone.ibm.com/collection/fyre-ocp-clusters). I used 4 nodes (8 CPU, 32 GB) , 250 GB storage, and OpenShift version 4.8
+## 1. Get a cluster from TechZon using the [following link](https://techzone.ibm.com/collection/fyre-ocp-clusters). I used 4 nodes (8 CPU, 32 GB) , 250 GB storage, and OpenShift version 4.8
 
-2. Connect to your Bastion node:
+## 2. Connect to your Bastion node:
 ```
 ssh -i  ssh_private_key.pem root@<IP_PROVIDED_BY_TECHZONE>
 ```
-3. Start by setting up OCS storage. I did it based on the tutorial available on [GitHub page](https://github.ibm.com/icp4d-sre/sre-infra/blob/master/How-to-install-OCS-(Openshift-Container-Storage)-4.8-on-OpenShift-4.8-FYRE.md). Below you can find requied steps:  
+## 3. Start by setting up OCS storage. I did it based on the tutorial available on [GitHub page](https://github.ibm.com/icp4d-sre/sre-infra/blob/master/How-to-install-OCS-(Openshift-Container-Storage)-4.8-on-OpenShift-4.8-FYRE.md). Below you can find requied steps:  
    - Install **Local Storage Operator** in Operator Hub of OpenShift console
    - Connect to your Bastion node:
    ```
@@ -87,14 +136,14 @@ ssh -i  ssh_private_key.pem root@<IP_PROVIDED_BY_TECHZONE>
    openshift-storage.noobaa.io           openshift-storage.noobaa.io/obc         Delete          Immediate              false                  83m
 
    ```
-4. Change the port 9000 used by haproxy to e.g. 9111 as otherwise you will have conflict with **ClickHouse** database. 
+## 4. Change the port 9000 used by haproxy to e.g. 9111 as otherwise you will have conflict with **ClickHouse** database. 
 ```
 vi /etc/haproxy/haproxy.cfg
 systemctl stop haproxy
 systemctl start haproxy
 ```
 
-5. Install Instana Plugin. There is [IBM documentation](https://www.ibm.com/docs/en/obi/current?topic=kubernetes-instana-kubectl-plug-in) on that.   
+## 5. Install Instana Plugin. There is [IBM documentation](https://www.ibm.com/docs/en/obi/current?topic=kubernetes-instana-kubectl-plug-in) on that.   
    **Option A**: I have already copied the installation file **kubectl-instana-linux_amd64-release-223-0.tar.gz** to Basion Node
       ```
       mkdir kubectl-instana; cd kubectl-instana
@@ -122,174 +171,174 @@ systemctl start haproxy
       yum makecache -y --timer
       yum install -y instana-kubectl
       ```
-6. Setup Instana datastores  
+## 6. Setup Instana datastores  
    Install instana datastores using **3-rd party vender operators**  
    
-      6.0 Parparation  
-      
-      ```
-         # Install helm3, see https://github.com/helm/helm#install
-         curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-         chmod 700 get_helm.sh
-         ./get_helm.sh
-         # Unzip the manifests for 3-party vender operators
-         tar zxvf onprem-distkit.tgz  // onprem-distkit.tgz is in packages directory
-         cd onprem-distkit
-         
-      ```  
-      6.1  [Create Zookeeper datastore using Zookeeper Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/tree/main/onprem-distkit/zookeeper/operator)
-      ```
-         # Zookeeper Operator installation
-         helm repo add pravega https://charts.pravega.io
-         helm repo update
-         helm install instana -n instana-clickhouse-zookeeper --create-namespace pravega/zookeeper-operator
-         # Ensemble deployment
-         kubectl apply -f zookeeper/operator/manifests/instana-zookeeper.yaml -n instana-clickhouse-zookeeper
-         # Deployment verification
-         kubectl get all -n instana-clickhouse-zookeeper
-         NAME                                             READY   STATUS    RESTARTS   AGE
-         pod/instana-zookeeper-operator-df5c8df87-6ql26   1/1     Running   0          4h37m
-         pod/instana-0                                    1/1     Running   0          3h22m
-         pod/instana-1                                    1/1     Running   0          3h22m
-         pod/instana-2                                    1/1     Running   0          3h21m
+### 6.0 Parparation  
 
-         NAME                           TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                                        AGE
-         service/instana-client         ClusterIP   10.43.224.156   <none>        2181/TCP                                       3h22m
-         service/instana-headless       ClusterIP   None            <none>        2181/TCP,2888/TCP,3888/TCP,7000/TCP,8080/TCP   3h22m
-         service/instana-admin-server   ClusterIP   10.43.158.156   <none>        8080/TCP                                       3h22m
+```sh
+# Install helm3, see https://github.com/helm/helm#install
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+# Unzip the manifests for 3-party vender operators
+tar zxvf onprem-distkit.tgz  // onprem-distkit.tgz is in packages directory
+cd onprem-distkit
 
-         NAME                                         READY   UP-TO-DATE   AVAILABLE   AGE
-         deployment.apps/instana-zookeeper-operator   1/1     1            1           4h37m
+```  
+### 6.1  [Create Zookeeper datastore using Zookeeper Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/tree/main/onprem-distkit/zookeeper/operator)
+```sh
+# Zookeeper Operator installation
+helm repo add pravega https://charts.pravega.io
+helm repo update
+helm install instana -n instana-clickhouse-zookeeper --create-namespace pravega/zookeeper-operator
+# Ensemble deployment
+kubectl apply -f zookeeper/operator/manifests/instana-zookeeper.yaml -n instana-clickhouse-zookeeper
+# Deployment verification
+kubectl get all -n instana-clickhouse-zookeeper
+NAME                                             READY   STATUS    RESTARTS   AGE
+pod/instana-zookeeper-operator-df5c8df87-6ql26   1/1     Running   0          4h37m
+pod/instana-0                                    1/1     Running   0          3h22m
+pod/instana-1                                    1/1     Running   0          3h22m
+pod/instana-2                                    1/1     Running   0          3h21m
 
-         NAME                                                   DESIRED   CURRENT   READY   AGE
-         replicaset.apps/instana-zookeeper-operator-df5c8df87   1         1         1       4h37m
+NAME                           TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                                        AGE
+service/instana-client         ClusterIP   10.43.224.156   <none>        2181/TCP                                       3h22m
+service/instana-headless       ClusterIP   None            <none>        2181/TCP,2888/TCP,3888/TCP,7000/TCP,8080/TCP   3h22m
+service/instana-admin-server   ClusterIP   10.43.158.156   <none>        8080/TCP                                       3h22m
 
-         NAME                       READY   AGE
-         statefulset.apps/instana   3/3     3h22m
-      ```
-    
-      6.2  [Create Kafka datastore using Strimzi Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/kafka/operator/README.md)  
-      ```
-         # Strimzi Operator installation
-         helm repo add strimzi https://strimzi.io/charts/
-         helm repo update
-         helm install strimzi strimzi/strimzi-kafka-operator --version 0.28.0 -n instana-kafka --create-namespace
-         # Ensemble deployment
-         kubectl apply -f kafka/operator/manifests/instana-kafka.yaml -n instana-kafka
-         kubectl wait kafka/instana --for=condition=Ready --timeout=300s -n instana-kafka
-         # Deployment verification
-         kubectl get pods -n instana-kafka
-         NAME                                        READY   STATUS    RESTARTS   AGE
-         strimzi-cluster-operator-7695cb5f7f-b6ffn   1/1     Running   0          6h24m
-         instana-zookeeper-1                         1/1     Running   0          47m
-         instana-zookeeper-2                         1/1     Running   0          47m
-         instana-zookeeper-0                         1/1     Running   0          47m
-         instana-kafka-1                             1/1     Running   0          46m
-         instana-kafka-0                             1/1     Running   0          46m
-         instana-kafka-2                             1/1     Running   0          46m
-      ```
-      
-      6.3  [Create Elasticsearch datastore using Elasticsearch (ECK) Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/elasticsearch/operator/README.md)  
-      ```
-         # Elasticsearch (ECK) Operator installation
-         helm repo add elastic https://helm.elastic.co
-         helm repo update
-         helm install elastic-operator elastic/eck-operator -n instana-elastic --create-namespace
-         # Ensemble deployment
-         kubectl apply -f elasticsearch/operator/manifests/instana-elasticsearch.yaml -n instana-elastic
-         # Deployment verification
-         kubectl get all -n instana-elastic
-         NAME                       READY   STATUS    RESTARTS   AGE
-         pod/elastic-operator-0     1/1     Running   1          4m14s
-         pod/instana-es-default-1   1/1     Running   0          2m42s
-         pod/instana-es-default-0   1/1     Running   0          2m42s
-         pod/instana-es-default-2   1/1     Running   0          2m42s
+NAME                                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/instana-zookeeper-operator   1/1     1            1           4h37m
 
-         NAME                               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
-         service/elastic-operator-webhook   ClusterIP   10.43.212.82    <none>        443/TCP    4m14s
-         service/instana-es-transport       ClusterIP   None            <none>        9300/TCP   2m44s
-         service/instana-es-http            ClusterIP   10.43.204.194   <none>        9200/TCP   2m44s
-         service/instana-es-default         ClusterIP   None            <none>        9200/TCP   2m42s
+NAME                                                   DESIRED   CURRENT   READY   AGE
+replicaset.apps/instana-zookeeper-operator-df5c8df87   1         1         1       4h37m
 
-         NAME                                  READY   AGE
-         statefulset.apps/elastic-operator     1/1     4m14s
-         statefulset.apps/instana-es-default   3/3     2m42s
-      ```
-      
-      6.4  [Create CockroachDB datastore using CockroachDB Kubernetes Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cockroachdb/operator/README.md)  
-    ```
-         # CockroachDB Kubernetes Operator installation
-         kubectl apply -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/crds.yaml
-         curl https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/operator.yaml | sed 's|cockroach-operator-system|instana-cockroachdb|g' | kubectl apply -f -
-         # Ensemble deployment
-         kubectl apply -f cockroachdb/operator/manifests/instana-cockroachdb.yaml -n instana-cockroachdb
-         # Deployment verification
-         kubectl get pods -n instana-cockroachdb
-         NAME                                  READY   STATUS    RESTARTS   AGE
-         cockroach-operator-6f7b86ffc4-9t9zb   1/1     Running   0          3m22s
-         cockroachdb-0                         1/1     Running   0          2m31s
-         cockroachdb-1                         1/1     Running   0          102s
-         cockroachdb-2                         1/1     Running   0          46s
-      ```
-      
-      6.5  [Create Cassandra datastore using Cass Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cassandra/operator/README.md)  
-      ```
-         # Cass Operator installation
-         helm repo add k8ssandra https://helm.k8ssandra.io/stable
-         helm repo update
-         helm install cass-operator k8ssandra/cass-operator -n instana-cassandra --create-namespace
-         # Security settings
-         kubectl apply -f cassandra/operator/manifests/cassandra_scc.yaml
-         # Ensemble deployment
-         kubectl apply -f cassandra/operator/manifests/instana-cassandra.yaml -n instana-cassandra
-         # Deployment verification
-         $ kubectl get pods -n instana-cassandra --selector cassandra.datastax.com/cluster=instana
-         NAME                            READY   STATUS    RESTARTS   AGE
-         instana-cassandra-default-sts-1   2/2     Running   0          5m10s
-         instana-cassandra-default-sts-2   2/2     Running   0          5m10s
-         instana-cassandra-default-sts-0   2/2     Running   0          5m10s
-         
-      ```
-      
-      6.6  [Create Clickhouse datastore using ClickHouse Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/clickhouse/operator/README.md)  
-      ```
-         # Clickhouse Operator installation
-         curl -s https://raw.githubusercontent.com/Altinity/clickhouse-operator/master/deploy/operator-web-installer/clickhouse-operator-install.sh | OPERATOR_NAMESPACE=instana-clickhouse bash
-         # Ensemble deployment
-         kubectl apply -f clickhouse/operator/manifests/instana-clickhouse.yaml -n instana-clickhouse
-         # Deployment verification
-         $ kubectl get all -n instana-clickhouse
-         NAME                                       READY   STATUS    RESTARTS   AGE
-         pod/clickhouse-operator-6fd75cbd68-lnd2n   2/2     Running   0          170m
-         pod/svclb-clickhouse-instana-qv8c6         2/2     Running   0          158m
-         pod/chi-instana-local-0-0-0                2/2     Running   0          158m
-         pod/chi-instana-local-0-1-0                2/2     Running   0          134m
-
-         NAME                                  TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
-         service/clickhouse-operator-metrics   ClusterIP      10.43.114.134   <none>        8888/TCP                        170m
-         service/clickhouse-instana            LoadBalancer   10.43.184.83    9.46.95.158   8123:30458/TCP,9000:31584/TCP   158m
-         service/chi-instana-local-0-0         ClusterIP      None            <none>        8123/TCP,9000/TCP,9009/TCP      158m
-         service/chi-instana-local-0-1         ClusterIP      None            <none>        8123/TCP,9000/TCP,9009/TCP      134m
-
-         NAME                                      DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-         daemonset.apps/svclb-clickhouse-instana   1         1         1       1            1           <none>          158m
-
-         NAME                                  READY   UP-TO-DATE   AVAILABLE   AGE
-         deployment.apps/clickhouse-operator   1/1     1            1           170m
-
-         NAME                                             DESIRED   CURRENT   READY   AGE
-         replicaset.apps/clickhouse-operator-6fd75cbd68   1         1         1       170m
-
-         NAME                                     READY   AGE
-         statefulset.apps/chi-instana-local-0-0   1/1     158m
-         statefulset.apps/chi-instana-local-0-1   1/1     134m
-      ```
-7. Install Cert Manager
+NAME                       READY   AGE
+statefulset.apps/instana   3/3     3h22m
 ```
+    
+###   6.2  [Create Kafka datastore using Strimzi Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/kafka/operator/README.md)  
+```sh
+# Strimzi Operator installation
+helm repo add strimzi https://strimzi.io/charts/
+helm repo update
+helm install strimzi strimzi/strimzi-kafka-operator --version 0.28.0 -n instana-kafka --create-namespace
+# Ensemble deployment
+kubectl apply -f kafka/operator/manifests/instana-kafka.yaml -n instana-kafka
+kubectl wait kafka/instana --for=condition=Ready --timeout=300s -n instana-kafka
+# Deployment verification
+kubectl get pods -n instana-kafka
+NAME                                        READY   STATUS    RESTARTS   AGE
+strimzi-cluster-operator-7695cb5f7f-b6ffn   1/1     Running   0          6h24m
+instana-zookeeper-1                         1/1     Running   0          47m
+instana-zookeeper-2                         1/1     Running   0          47m
+instana-zookeeper-0                         1/1     Running   0          47m
+instana-kafka-1                             1/1     Running   0          46m
+instana-kafka-0                             1/1     Running   0          46m
+instana-kafka-2                             1/1     Running   0          46m
+```
+      
+### 6.3  [Create Elasticsearch datastore using Elasticsearch (ECK) Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/elasticsearch/operator/README.md)  
+ ```sh
+# Elasticsearch (ECK) Operator installation
+helm repo add elastic https://helm.elastic.co
+helm repo update
+helm install elastic-operator elastic/eck-operator -n instana-elastic --create-namespace
+# Ensemble deployment
+kubectl apply -f elasticsearch/operator/manifests/instana-elasticsearch.yaml -n instana-elastic
+# Deployment verification
+kubectl get all -n instana-elastic
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/elastic-operator-0     1/1     Running   1          4m14s
+pod/instana-es-default-1   1/1     Running   0          2m42s
+pod/instana-es-default-0   1/1     Running   0          2m42s
+pod/instana-es-default-2   1/1     Running   0          2m42s
+
+NAME                               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/elastic-operator-webhook   ClusterIP   10.43.212.82    <none>        443/TCP    4m14s
+service/instana-es-transport       ClusterIP   None            <none>        9300/TCP   2m44s
+service/instana-es-http            ClusterIP   10.43.204.194   <none>        9200/TCP   2m44s
+service/instana-es-default         ClusterIP   None            <none>        9200/TCP   2m42s
+
+NAME                                  READY   AGE
+statefulset.apps/elastic-operator     1/1     4m14s
+statefulset.apps/instana-es-default   3/3     2m42s
+ ```
+      
+### 6.4  [Create CockroachDB datastore using CockroachDB Kubernetes Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cockroachdb/operator/README.md)  
+```sh
+# CockroachDB Kubernetes Operator installation
+kubectl apply -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/crds.yaml
+curl https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/install/operator.yaml | sed 's|cockroach-operator-system|instana-cockroachdb|g' | kubectl apply -f -
+# Ensemble deployment
+kubectl apply -f cockroachdb/operator/manifests/instana-cockroachdb.yaml -n instana-cockroachdb
+# Deployment verification
+kubectl get pods -n instana-cockroachdb
+NAME                                  READY   STATUS    RESTARTS   AGE
+cockroach-operator-6f7b86ffc4-9t9zb   1/1     Running   0          3m22s
+cockroachdb-0                         1/1     Running   0          2m31s
+cockroachdb-1                         1/1     Running   0          102s
+cockroachdb-2                         1/1     Running   0          46s
+```
+      
+### 6.5  [Create Cassandra datastore using Cass Operaror](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/cassandra/operator/README.md)  
+```sh
+# Cass Operator installation
+helm repo add k8ssandra https://helm.k8ssandra.io/stable
+helm repo update
+helm install cass-operator k8ssandra/cass-operator -n instana-cassandra --create-namespace
+# Security settings
+kubectl apply -f cassandra/operator/manifests/cassandra_scc.yaml
+# Ensemble deployment
+kubectl apply -f cassandra/operator/manifests/instana-cassandra.yaml -n instana-cassandra
+# Deployment verification
+$ kubectl get pods -n instana-cassandra --selector cassandra.datastax.com/cluster=instana
+NAME                            READY   STATUS    RESTARTS   AGE
+instana-cassandra-default-sts-1   2/2     Running   0          5m10s
+instana-cassandra-default-sts-2   2/2     Running   0          5m10s
+instana-cassandra-default-sts-0   2/2     Running   0          5m10s
+   
+```
+      
+### 6.6  [Create Clickhouse datastore using ClickHouse Operator](https://github.ibm.com/instana/lab-self-hosting-k8s/blob/main/onprem-distkit/clickhouse/operator/README.md)  
+```sh
+# Clickhouse Operator installation
+curl -s https://raw.githubusercontent.com/Altinity/clickhouse-operator/master/deploy/operator-web-installer/clickhouse-operator-install.sh | OPERATOR_NAMESPACE=instana-clickhouse bash
+# Ensemble deployment
+kubectl apply -f clickhouse/operator/manifests/instana-clickhouse.yaml -n instana-clickhouse
+# Deployment verification
+$ kubectl get all -n instana-clickhouse
+NAME                                       READY   STATUS    RESTARTS   AGE
+pod/clickhouse-operator-6fd75cbd68-lnd2n   2/2     Running   0          170m
+pod/svclb-clickhouse-instana-qv8c6         2/2     Running   0          158m
+pod/chi-instana-local-0-0-0                2/2     Running   0          158m
+pod/chi-instana-local-0-1-0                2/2     Running   0          134m
+
+NAME                                  TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                         AGE
+service/clickhouse-operator-metrics   ClusterIP      10.43.114.134   <none>        8888/TCP                        170m
+service/clickhouse-instana            LoadBalancer   10.43.184.83    9.46.95.158   8123:30458/TCP,9000:31584/TCP   158m
+service/chi-instana-local-0-0         ClusterIP      None            <none>        8123/TCP,9000/TCP,9009/TCP      158m
+service/chi-instana-local-0-1         ClusterIP      None            <none>        8123/TCP,9000/TCP,9009/TCP      134m
+
+NAME                                      DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+daemonset.apps/svclb-clickhouse-instana   1         1         1       1            1           <none>          158m
+
+NAME                                  READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/clickhouse-operator   1/1     1            1           170m
+
+NAME                                             DESIRED   CURRENT   READY   AGE
+replicaset.apps/clickhouse-operator-6fd75cbd68   1         1         1       170m
+
+NAME                                     READY   AGE
+statefulset.apps/chi-instana-local-0-0   1/1     158m
+statefulset.apps/chi-instana-local-0-1   1/1     134m
+```
+## 7. Install Cert Manager
+```sh
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 ```
-8. Create namespace for Instana Operator and required secret. Please make sure to put your valid **DOWNLOAD_KEY**
-```
+## 8. Create namespace for Instana Operator and required secret. Please make sure to put your valid **DOWNLOAD_KEY**
+```sh
 kubectl create ns instana-operator
 
 kubectl create secret docker-registry instana-registry --namespace instana-operator \
@@ -297,47 +346,47 @@ kubectl create secret docker-registry instana-registry --namespace instana-opera
     --docker-password=<DOWNLOAD_KEY> \
     --docker-server=containers.instana.io
 ```
-9. Add required permissions for service account:
-```
+## 9. Add required permissions for service account:
+```sh
 oc adm policy add-scc-to-user anyuid -z instana-operator -n instana-operator
 ```
-10. Create a file called *values.yaml* in /tmp. This will tell Instana operator which secret to use to pull containers: 
-```
+## 10. Create a file called *values.yaml* in /tmp. This will tell Instana operator which secret to use to pull containers: 
+```sh
 imagePullSecrets:
   - name: instana-registry 
 ```
-11. Install Instana Operator:
-```
+## 11. Install Instana Operator:
+```sh
 kubectl instana operator apply --namespace=instana-operator --values /tmp/values.yaml
 ```
 
-12.  Check if it is running `kubectl get pods -n instana-operator`. You should see one pod running:
-```
+## 12.  Check if it is running `kubectl get pods -n instana-operator`. You should see one pod running:
+```sh
 NAME                               READY   STATUS    RESTARTS   AGE
 instana-operator-d879c8c6c-ph56z   1/1     Running   0          108m
 ```
-13. Create directories to hold yaml files of Instana Core:
-```
+## 13. Create directories to hold yaml files of Instana Core:
+```sh
 mkdir instana-template; cd instana-template
 kubectl instana template --output-dir /root/instana-template
 ```
 
-14. Create two namespaces : *instana-core* , *instana-units* 
+## 14. Create two namespaces : *instana-core* , *instana-units* 
 ```
 kubectl apply -f namespaces.yaml
 ```
 
-15. Download Instana license. Please make sure to provide valid **SALES_KEY**
+## 15. Download Instana license. Please make sure to provide valid **SALES_KEY**
 ```
 kubectl instana license download --sales-key <SALES_KEY>
 ```
 
-16. Create Diffie-Hellman parameters for **instana-base**  secret 
+## 16. Create Diffie-Hellman parameters for **instana-base**  secret 
 ```
 openssl dhparam -out dhparams.pem 2048
 ```
 
-17. Create **instana-registry** secret in **instana-core** and **instana-units** namespaces. Of coure provide valid **DOWNLOAD_KEY**
+## 17. Create **instana-registry** secret in **instana-core** and **instana-units** namespaces. Of coure provide valid **DOWNLOAD_KEY**
 ```
 kubectl create secret docker-registry instana-registry --namespace instana-core \
     --docker-username=_ \
@@ -351,13 +400,13 @@ kubectl create secret docker-registry instana-registry --namespace instana-units
     --docker-server=containers.instana.io
 kubectl label secret instana-registry app.kubernetes.io/name=instana --namespace instana-units
 ```
-18. Create combined key/cert file. Provide *passw0rd* as pass phrase : 
+## 18. Create combined key/cert file. Provide *passw0rd* as pass phrase : 
 ```
 openssl genrsa -aes128 -out key.pem 2048
 openssl req -new -x509 -key key.pem -out cert.pem -days 365
 cat key.pem cert.pem > sp.pem
 ```
-19. Create **Core** Secret.  
+## 19. Create **Core** Secret.  
 
 Create a file *config.yaml* with the following contents, provide *passw0rd* as pass phrase and put valid **DOWNLOAD_KEY**, **SALES_KEY**,  **SNIP_THE_CONTENTS_OF_dhparams.pem**, **SNIP_THE_CONTENTS_OF_key.pem** and **SNIP_THE_CONTENTS_OF_cert.pem**, please note indent:  
 ```
@@ -418,13 +467,13 @@ Create **instana-core** Secret
 ```
 kubectl create secret generic instana-core --namespace instana-core --from-file=./config.yaml
 ```
-20. Create **instana-tls** secret. Provide baseDomain as CN  
+## 20. Create **instana-tls** secret. Provide baseDomain as CN  
 ```
 openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 365 -nodes -subj "/CN=<YOUR_BASE_DOMAIN provided in core.yaml>"
 kubectl create secret tls instana-tls --namespace instana-core --cert=tls.crt --key=tls.key
 kubectl label secret instana-tls   app.kubernetes.io/name=instana -n instana-core
 ```
-21. Create **Unit Secret**.  
+## 21. Create **Unit Secret**.  
 Create a file *config.yaml* with the following contents, put valid **AGENT_KEY** and **SNIP_THE_CONTENTS_OF_license.json**:  
 ```
 # The Instana license. an be a plain text string or a JSON array.
@@ -440,7 +489,7 @@ kubectl create secret generic tenant0-unit0 --namespace instana-units --from-fil
 
 ```
 
-22. Add required permissions for service accounts. Without those the pods will not start.  
+## 22. Add required permissions for service accounts. Without those the pods will not start.  
 Please note that it is possible that not all of those permissions are required.
 ```
 oc adm policy add-scc-to-user anyuid  -z tenant0-unit0 -n instana-units
@@ -456,7 +505,7 @@ oc adm policy add-scc-to-user privileged -z instana-core
 oc adm policy add-scc-to-user anyuid -z instana-core -n instana-core
 oc adm policy add-scc-to-user anyuid -z instana-core
 ```
-23. Create **spans-volume-claim** and **appdata-writer** persistent volume claims  
+## 23. Create **spans-volume-claim** and **appdata-writer** persistent volume claims  
 ```spans-volume-claim.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -503,7 +552,7 @@ spec:
   storageClassName: ocs-storagecluster-cephfs
   volumeMode: Filesystem
 ```
-24. In */root/instana-template* there should be core.yaml file which needs to be updated as below for your environment.     
+## 24. In */root/instana-template* there should be core.yaml file which needs to be updated as below for your environment.     
 **Core.yaml** for Connecting to **instana datastores using 3-rd party vender operators**, provide valid **ACCEPTOR_DOMAIN** and **YOUR_BASE_DOMAIN** 
    ```
    apiVersion: instana.io/v1beta2
@@ -588,11 +637,11 @@ spec:
        - name: instana-registry
    ```
 
-25. Once the file is ready, please apply it `kubectl apply -f core.yaml`. You can check what is happening by looking at the events. Initially I found there information on permission issue causing pods' startup issues.
+## 25. Once the file is ready, please apply it `kubectl apply -f core.yaml`. You can check what is happening by looking at the events. Initially I found there information on permission issue causing pods' startup issues.
 ```
 kubectl get events -n instana-core
 ```
-26. If you don't see any errors you should eventually see pods running when you type: `kubectl get pods -n instana-core`
+## 26. If you don't see any errors you should eventually see pods running when you type: `kubectl get pods -n instana-core`
 ```
 NAME                                         READY   STATUS    RESTARTS   AGE
 acceptor-597bc9fdbb-pggbb                    1/1     Running   0          102m
@@ -614,7 +663,7 @@ serverless-acceptor-6ffcb7d5d9-tdgcr         1/1     Running   0          102m
 sli-evaluator-b54b99dc4-4s5lw                1/1     Running   0          102m
 ui-client-87ffb6d5d-fjvq6                    1/1     Running   0          98m
 ```
-27. Populate the **unit.yaml** file as below. 
+## 27. Populate the **unit.yaml** file as below. 
 ```
 apiVersion: instana.io/v1beta2
 kind: Unit
@@ -637,9 +686,9 @@ spec:
   # The same rules apply as for Cores. May be ommitted. Default is 'medium'
   resourceProfile: small
 ```
-28. When done, apply your settings: `kubectl apply -f unit.yaml`
-29. Progress can be monitored with `kubectl get events -n instana-units`
-30. Once process completes, you should get pods running `kubectl get pods -n instana-units`. Example output:
+## 28. When done, apply your settings: `kubectl apply -f unit.yaml`
+## 29. Progress can be monitored with `kubectl get events -n instana-units`
+## 30. Once process completes, you should get pods running `kubectl get pods -n instana-units`. Example output:
 ```
 NAME                                                         READY   STATUS    RESTARTS   AGE
 tu-tenant0-unit0-appdata-legacy-converter-86b44c54c8-9wf6q   1/1     Running   0          102m
@@ -649,19 +698,19 @@ tu-tenant0-unit0-issue-tracker-6889cd4c55-5rvfc              1/1     Running   0
 tu-tenant0-unit0-processor-7cffdb74f-9t7pn                   1/1     Running   0          102m
 tu-tenant0-unit0-ui-backend-7579657886-d7mnm                 1/1     Running   0          102m
 ```
-31. Create a route for accessing the UI.  
+## 31. Create a route for accessing the UI.  
    As hostname put unit0-tenant0.<YOUR_BASE_DOMAIN> ( baseDomain was specified in core.yaml ). I used *unit0-tenant0.apps.itzocp-665001jbi0-j816ol8l.cp.fyre.ibm.com*  
    ```
    oc create route passthrough ui-client-ssl --hostname=<your_hostname> --service=gateway --port=https -n instana-core
    ```
-32. Create a route for agent acceptor  
+## 32. Create a route for agent acceptor  
    As hostname put <ACCEPTOR_DOMAIN> in core.yaml.  
    ```
    oc create route passthrough acceptor  --hostname=<ACCEPTOR_DOMAIN>  --service=acceptor  --port=8600  -n instana-core
    ```
-33. Now you should be able to connect to your Instana by putting https://<your_hostname> in the browser
+## 33. Now you should be able to connect to your Instana by putting https://<your_hostname> in the browser
 ![](images/Instana.png)
 
-34. If something is missing or not right in this tuotorial, please let me know. 
+## 34. If something is missing or not right in this tuotorial, please let me know. 
    
 
