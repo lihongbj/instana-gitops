@@ -176,7 +176,7 @@ systemctl start haproxy
    
 ### 6.0 Parparation  
 
-```sh
+```console
 # Install helm3, see https://github.com/helm/helm#install
 curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
 chmod 700 get_helm.sh
