@@ -1,5 +1,10 @@
 #/bin/bash
 
+if [ ! -f $HOME/.kube/config ]; then
+	echo "file $HOME/.kube/config not found to continue, pls run oc login first. "
+	exit 2
+fi
+
 isocp=false
 if kubectl api-resources | grep projectrequests > /dev/null ; then
   isocp=true
@@ -26,10 +31,6 @@ echo "portalPassword: $portalPassword"
 kubectl create ns instana-operator
 
 # kubeconfig
-if [ ! -f $HOME/.kube/config ]; then
-	echo "file $HOME/.kube/config not found to continue, pls run oc login first. "
-	exit 2
-fi
 kubectl create secret generic kubeconfig --from-file=credentials=$HOME/.kube/config -n instana-operator
 
 # cert-manager
